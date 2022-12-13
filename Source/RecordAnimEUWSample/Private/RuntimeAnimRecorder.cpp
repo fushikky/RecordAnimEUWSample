@@ -60,30 +60,29 @@ bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const 
 	return false;
 }
 
-// bool ARuntimeAnimRecorder::Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd)
-// {
-// 	SkeletonRootIndex = INDEX_NONE;
-// 	USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
-// 
-// 	
-// 	FSerializedAnimation  SerializedAnimation;
-// 	USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
-// 
-// 
-// 	FRawAnimSequenceTrack& RawTrack = RawTracks[TrackIndex];
-// 
-// 
-// 	FTransform LocalTransform = SpacesBases[BoneIndex];
-// 
-// 	RawTrack.PosKeys.Add(FVector3f(LocalTransform.GetTranslation()));
-// 	RawTrack.RotKeys.Add(FQuat4f(LocalTransform.GetRotation()));
-// 	RawTrack.ScaleKeys.Add(FVector3f(LocalTransform.GetScale3D()));  
-// 	if (AnimationSerializer)
-// 	{
-// 		AnimationSerializer->WriteFrameData(AnimationSerializer->FramesWritten, SerializedAnimation);
-// 	}
-// 
-// }
+bool ARuntimeAnimRecorder::Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd)
+{
+	SkeletonRootIndex = INDEX_NONE;
+	
+	FSerializedAnimation  SerializedAnimation;
+	// AnimationRecorder.cpp#843
+	USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
+
+
+	FRawAnimSequenceTrack& RawTrack = RawTracks[TrackIndex];
+
+
+	FTransform LocalTransform = SpacesBases[BoneIndex];
+
+	RawTrack.PosKeys.Add(FVector3f(LocalTransform.GetTranslation()));
+	RawTrack.RotKeys.Add(FQuat4f(LocalTransform.GetRotation()));
+	RawTrack.ScaleKeys.Add(FVector3f(LocalTransform.GetScale3D()));  
+	if (AnimationSerializer)
+	{
+		AnimationSerializer->WriteFrameData(AnimationSerializer->FramesWritten, SerializedAnimation);
+	}
+
+}
 
 bool ARuntimeAnimRecorder::Stop()
 {

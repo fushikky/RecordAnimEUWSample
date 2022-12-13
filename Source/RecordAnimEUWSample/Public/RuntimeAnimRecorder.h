@@ -29,8 +29,8 @@ public:
 	void PrintStr(FString InStr);
 	UFUNCTION(BlueprintCallable, Category = "Recorder")
 	bool StartRecord(USkeletalMeshComponent* Component, const FString& InAssetPath, const FString& InAssetName);
-	// UFUNCTION(BlueprintCallable, Category = "Recorder")
-	// bool Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd);
+	UFUNCTION(BlueprintCallable, Category = "Recorder")
+	bool Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd);
 	UFUNCTION(BlueprintCallable, Category = "Recorder")
 	bool Stop();
 
