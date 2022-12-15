@@ -3,6 +3,7 @@
 
 #include "RuntimeAnimRecorder.h"
 #include "UObject/SavePackage.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "FRuntimeAnimationRecoder"

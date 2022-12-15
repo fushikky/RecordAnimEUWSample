@@ -76,6 +76,8 @@ private:
 	FTransform InitialRootTransform;
 	TArray<FTransform> PreviousSpacesBases;
 
+	bool ShouldSkipName(const FName& InName) const;
+
 	/** If true, the root bone transform will be removed from all bone transforms */
 	uint8 bRemoveRootTransform;
 
@@ -91,10 +93,17 @@ private:
 	uint8 bRecordAttributeCurves : 1;
 	/** Whether or not to record material curves*/
 	uint8 bRecordMaterialCurves : 1;
-
+	/** The interpolation mode for the recorded keys */
+	ERichCurveInterpMode InterpMode;
 	/** Interpolation type for the recorded sequence */
 	EAnimInterpolationType Interpolation;
-
+	/** The tangent mode for the recorded keys*/
+	ERichCurveTangentMode TangentMode;
+	// /** Interpolation type for the recorded sequence */
+	// EAnimInterpolationType Interpolation;
+	/** If true, asset will be saved to disk after recording. If false, asset will remain in mem and can be manually saved. */
+	uint8 bAutoSaveAsset : 1;
+	
 	/** Notify events recorded at any point, processed and inserted into animation when recording has finished */
 	TArray<FAnimNotifyEvent> RecordedNotifyEvents;
 
