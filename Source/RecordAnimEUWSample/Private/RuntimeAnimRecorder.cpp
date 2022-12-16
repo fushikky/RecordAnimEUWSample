@@ -117,7 +117,8 @@ bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const 
 	// InitInternal
 	// DefaultSampleFrameRate
 	RecordingRate = SampleFrameRate;
-
+	bRecordTransforms = true;
+	bRecordLocalToWorld = true;
 
 	TimePassed = 0.0;
 
@@ -227,8 +228,6 @@ void ARuntimeAnimRecorder::UpdateRecord(USkeletalMeshComponent* Component, float
 	TArray<FTransform> SpaceBases;
 	SpaceBases = Component->GetComponentSpaceTransforms();
 
-	FTransform BlendedComponentToWorld;
-
 	if (FramesRecorded < FramesToRecord)
 	{
 		const FBlendedHeapCurve& AnimCurves = Component->GetAnimationCurves();
@@ -237,7 +236,7 @@ void ARuntimeAnimRecorder::UpdateRecord(USkeletalMeshComponent* Component, float
 		{
 			UE_LOG(LogAnimation, Log, TEXT("Current Num of Spaces %d don't match with the previous number %d so we are stopping recording"), SpaceBases.Num(), PreviousSpacesBases.Num());
 			// StopRecord(true);
-			// return;
+			return;
 		}
 		TArray<FTransform> BlendedSpaceBases;
 		BlendedSpaceBases.AddZeroed(SpaceBases.Num());
@@ -251,6 +250,16 @@ void ARuntimeAnimRecorder::UpdateRecord(USkeletalMeshComponent* Component, float
 
 			const float CurrentTime = RecordingRate.AsSeconds(FramesRecorded + 1);
 			float BlendAlpha = (CurrentTime - PreviousTimePassed) / DeltaTime;
+
+			UE_LOG(LogAnimation, Log, TEXT("Current Frame Count : %d, BlendAlpha : %0.2f"), FramesRecorded + 1, BlendAlpha);
+
+			// for now we just concern component space, not skeleton space
+			for (int32 BoneIndex = 0; BoneIndex<SpaceBases.Num(); ++BoneIndex)
+			{
+				BlendedSpaceBases[BoneIndex].Blend(PreviousSpacesBases[BoneIndex], SpaceBases[BoneIndex], BlendAlpha);
+			}
+
+			FTransform BlendedComponentToWorld;
 			BlendedComponentToWorld.Blend(PreviousComponentToWorld, Component->GetComponentTransform(), BlendAlpha);
 
 			FBlendedHeapCurve BlendedCurve;
