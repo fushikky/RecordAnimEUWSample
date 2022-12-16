@@ -76,8 +76,6 @@ private:
 	FTransform InitialRootTransform;
 	TArray<FTransform> PreviousSpacesBases;
 
-	bool ShouldSkipName(const FName& InName) const;
-
 	/** If true, the root bone transform will be removed from all bone transforms */
 	uint8 bRemoveRootTransform;
 
@@ -141,11 +139,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Test")
 	void PrintStr(FString InStr);
 	UFUNCTION(BlueprintCallable, Category = "Recorder")
-	bool StartRecord(USkeletalMeshComponent* Component, const FString& InAssetPath, const FString& InAssetName);
+	bool StartRecord(USkeletalMeshComponent* Component, const FString& InAssetPath, const FString& InAssetName, FFrameRate SampleFrameRate, float LengthInSeconds);
 	UFUNCTION(BlueprintCallable, Category = "Recorder")
-	bool UpdateRecord(USkeletalMeshComponent* Component, float DeltaTime);
+	void UpdateRecord(USkeletalMeshComponent* Component, float DeltaTime);
 	UFUNCTION(BlueprintCallable, Category = "Recorder")
-	bool Stop(bool bShowMessage);
+	UAnimSequence* StopRecord(bool bShowMessage);
+	bool ShouldSkipName(const FName& InName) const;
 
 
 private:

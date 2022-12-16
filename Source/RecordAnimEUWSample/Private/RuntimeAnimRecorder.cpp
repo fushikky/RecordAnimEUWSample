@@ -4,6 +4,7 @@
 #include "RuntimeAnimRecorder.h"
 #include "UObject/SavePackage.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 
 
 #define LOCTEXT_NAMESPACE "FRuntimeAnimationRecoder"
@@ -111,8 +112,12 @@ void ARuntimeAnimRecorder::PrintStr(FString InStr)
 	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Cyan, InStr);
 }
 
-bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const FString& InAssetPath, const FString& InAssetName)
+bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const FString& InAssetPath, const FString& InAssetName, FFrameRate SampleFrameRate, float LengthInSeconds)
 {
+	// InitInternal
+	// DefaultSampleFrameRate
+	RecordingRate = SampleFrameRate;
+
 
 	TimePassed = 0.0;
 
@@ -142,7 +147,11 @@ bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const 
 		AnimationObject = NewSeq;
 	}
 
+	PreviousAnimCurves = Component->GetAnimationCurves();
+	PreviousComponentToWorld = Component->GetComponentTransform();
+
 	LastFrame = 0;
+
 	IAnimationDataController& Controller = AnimationObject->GetController();
 	Controller.SetModel(AnimationObject->GetDataModel());
 
@@ -194,41 +203,82 @@ bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const 
 	return false;
 }
 
-bool ARuntimeAnimRecorder::UpdateRecord(USkeletalMeshComponent* Component, float DeltaTime)
+void ARuntimeAnimRecorder::UpdateRecord(USkeletalMeshComponent* Component, float DeltaTime)
 {
-	PreviousAnimCurves = Component->GetAnimationCurves();
+	// if no animation object, return
+	if (!AnimationObject || !Component)
+	{
+		return;
+	}
 
-	int32 FramesRecorded = LastFrame.Value;
+	// no sim time, no record
+	if (DeltaTime <= 0.f)
+	{
+		return;
+	}
 
-	TArray<FTransform> SpaceBases;
-
-	SpaceBases = Component->GetComponentSpaceTransforms();
-
-	TArray<FTransform> BlendedSpaceBases;
-	BlendedSpaceBases.AddZeroed(SpaceBases.Num());
-
-	FTransform BlendedComponentToWorld;
 
 	float const PreviousTimePassed = TimePassed;
 	TimePassed += DeltaTime;
 
-	const float CurrentTime = RecordingRate.AsSeconds(FramesRecorded + 1);
-	float BlendAlpha = (CurrentTime - PreviousTimePassed) / DeltaTime;
-	BlendedComponentToWorld.Blend(PreviousComponentToWorld, Component->GetComponentTransform(), BlendAlpha);
+	int32 FramesRecorded = LastFrame.Value;
+	int32 FramesToRecord = RecordingRate.AsFrameNumber(TimePassed).Value;
 
-	FBlendedHeapCurve BlendedCurve;
+	TArray<FTransform> SpaceBases;
+	SpaceBases = Component->GetComponentSpaceTransforms();
 
-	if (!Record(Component, BlendedComponentToWorld, BlendedSpaceBases, BlendedCurve, FramesRecorded + 1))
+	FTransform BlendedComponentToWorld;
+
+	if (FramesRecorded < FramesToRecord)
 	{
-		return false;
-	}
+		const FBlendedHeapCurve& AnimCurves = Component->GetAnimationCurves();
 
-	return true;
+		if (SpaceBases.Num() != PreviousSpacesBases.Num())
+		{
+			UE_LOG(LogAnimation, Log, TEXT("Current Num of Spaces %d don't match with the previous number %d so we are stopping recording"), SpaceBases.Num(), PreviousSpacesBases.Num());
+			// StopRecord(true);
+			// return;
+		}
+		TArray<FTransform> BlendedSpaceBases;
+		BlendedSpaceBases.AddZeroed(SpaceBases.Num());
+
+		UE_LOG(LogAnimation, Log, TEXT("DeltaTime : %0.2f, Current Frame Count : %d, Frames To Record : %d, TimePassed : %0.2f"), DeltaTime
+			, FramesRecorded, FramesToRecord, TimePassed);
+
+		// if we need to record frame
+		while (FramesToRecord > FramesRecorded)
+		{
+
+			const float CurrentTime = RecordingRate.AsSeconds(FramesRecorded + 1);
+			float BlendAlpha = (CurrentTime - PreviousTimePassed) / DeltaTime;
+			BlendedComponentToWorld.Blend(PreviousComponentToWorld, Component->GetComponentTransform(), BlendAlpha);
+
+			FBlendedHeapCurve BlendedCurve;
+
+			if (AnimCurves.CurveWeights.Num() > 0 && PreviousAnimCurves.CurveWeights.Num() == AnimCurves.CurveWeights.Num() && PreviousAnimCurves.IsValid() && AnimCurves.IsValid())
+			{
+				BlendedCurve.Lerp(PreviousAnimCurves, AnimCurves, BlendAlpha);
+			}
+			else
+			{
+				// just override with AnimCurves for this frames, because UID list has changed
+				// which means new curves are added in run-time
+				BlendedCurve = AnimCurves;
+			}
+
+
+			if (!Record(Component, BlendedComponentToWorld, BlendedSpaceBases, BlendedCurve, FramesRecorded + 1))
+			{
+				return;
+			}
+			++FramesRecorded;
+		}
+	}
 }
 
 bool ARuntimeAnimRecorder::Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd)
 {
-	// AnimationRecorder.cpp#843
+	// AnimationRecorder.cpp #843
 	if (ensure(AnimationObject))
 	{
 		IAnimationDataController& Controller = AnimationObject->GetController();
@@ -346,7 +396,8 @@ bool ARuntimeAnimRecorder::Record(USkeletalMeshComponent* Component, FTransform 
 		// 	AnimationSerializer->WriteFrameData(AnimationSerializer->FramesWritten, SerializedAnimation);
 		// }
 		// each RecordedCurves contains all elements
-		const bool bRecordCurves = bRecordMorphTargets || bRecordAttributeCurves || bRecordMaterialCurves;
+		// const bool bRecordCurves = bRecordMorphTargets || bRecordAttributeCurves || bRecordMaterialCurves;
+		const bool bRecordCurves = true;
 		if (bRecordCurves && AnimationCurves.CurveWeights.Num() > 0)
 		{
 			RecordedCurves.Emplace(AnimationCurves.CurveWeights, AnimationCurves.ValidCurveWeights);
@@ -370,7 +421,7 @@ bool ARuntimeAnimRecorder::Record(USkeletalMeshComponent* Component, FTransform 
 	return true;
 }
 
-bool ARuntimeAnimRecorder::Stop(bool bShowMessage)
+UAnimSequence* ARuntimeAnimRecorder::StopRecord(bool bShowMessage)
 {
 
 	// double StartTime, ElapsedTime = 0;
@@ -434,9 +485,9 @@ bool ARuntimeAnimRecorder::Stop(bool bShowMessage)
 						}
 
 						const bool bSkipCurve = (bMorphTarget && !bRecordMorphTargets) ||
-						                        (bAttributeCurve && !bRecordAttributeCurves) ||
-						                        (bMaterialCurve && !bRecordMaterialCurves) ||
-						                        bShouldSkipName;
+							(bAttributeCurve && !bRecordAttributeCurves) ||
+							(bMaterialCurve && !bRecordMaterialCurves) || 
+							bShouldSkipName;
 
 						if (bSkipCurve)
 						{
@@ -578,24 +629,24 @@ bool ARuntimeAnimRecorder::Stop(bool bShowMessage)
 			                               RecordingRate.ToPrettyText()
 			                                            );
 
-			if (GIsEditor)
-			{
-				FNotificationInfo Info(NotificationText);
-				Info.ExpireDuration = 8.0f;
-				Info.bUseLargeFont = false;
-				Info.Hyperlink = FSimpleDelegate::CreateLambda([ = ]()
-				{
-					TArray<UObject*> Assets;
-					Assets.Add(ReturnObject);
-					GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAssets(Assets);
-				});
-				Info.HyperlinkText = FText::Format(LOCTEXT("OpenNewAnimationHyperlink", "Open {0}"), FText::FromString(AnimationObject->GetName()));
-				TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-				if ( Notification.IsValid() )
-				{
-					Notification->SetCompletionState( SNotificationItem::CS_Success );
-				}
-			}
+			// if (GIsEditor)
+			// {
+			// 	FNotificationInfo Info(NotificationText);
+			// 	Info.ExpireDuration = 8.0f;
+			// 	Info.bUseLargeFont = false;
+			// 	Info.Hyperlink = FSimpleDelegate::CreateLambda([ = ]()
+			// 	{
+			// 		TArray<UObject*> Assets;
+			// 		Assets.Add(ReturnObject);
+			// 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAssets(Assets);
+			// 	});
+			// 	Info.HyperlinkText = FText::Format(LOCTEXT("OpenNewAnimationHyperlink", "Open {0}"), FText::FromString(AnimationObject->GetName()));
+			// 	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
+			// 	if ( Notification.IsValid() )
+			// 	{
+			// 		Notification->SetCompletionState( SNotificationItem::CS_Success );
+			// 	}
+			// }
 
 			FAssetRegistryModule::AssetCreated(AnimationObject);
 		}
@@ -607,10 +658,38 @@ bool ARuntimeAnimRecorder::Stop(bool bShowMessage)
 		return ReturnObject;
 	}
 
-	UniqueNotifies.Empty();
-	UniqueNotifyStates.Empty();
+	// UniqueNotifies.Empty();
+	// UniqueNotifyStates.Empty();
 
 	return nullptr;
 }
+
+bool ARuntimeAnimRecorder::ShouldSkipName(const FName& InName) const
+{
+	bool bShouldSkipName = false;
+			
+	// for (const FString& ExcludeAnimationName : ExcludeAnimationNames)
+	// {
+	// 	if (InName.ToString().Contains(ExcludeAnimationName))
+	// 	{
+	// 		bShouldSkipName = true;
+	// 		break;
+	// 	}
+	// }
+
+	// if (IncludeAnimationNames.Num() != 0)
+	// {
+	// 	bShouldSkipName = true;
+	// 	for (const FString& IncludeAnimationName : IncludeAnimationNames)
+	// 	{
+	// 		if (InName.ToString().Contains(IncludeAnimationName))
+	// 		{
+	// 			bShouldSkipName = false;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+
+	return bShouldSkipName;
 }
 
