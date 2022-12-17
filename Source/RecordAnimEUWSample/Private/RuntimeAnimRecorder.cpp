@@ -75,28 +75,28 @@ void ARuntimeAnimRecorder::ProcessNotifies()
 		AnimationObject->Notifies.Append(RecordedNotifyEvents);
 
 		// build notify tracks - first find how many tracks we want
-		for (FAnimNotifyEvent& Event : AnimationObject->Notifies)
-		{
-			if (Event.TrackIndex >= AnimationObject->AnimNotifyTracks.Num())
-			{
-				AnimationObject->AnimNotifyTracks.SetNum(Event.TrackIndex + 1);
+		// for (FAnimNotifyEvent& Event : AnimationObject->Notifies)
+		// {
+		// 	if (Event.TrackIndex >= AnimationObject->AnimNotifyTracks.Num())
+		// 	{
+		// 		AnimationObject->AnimNotifyTracks.SetNum(Event.TrackIndex + 1);
 
-				// remake track names to create a nice sequence
-				const int32 TrackNum = AnimationObject->AnimNotifyTracks.Num();
-				for (int32 TrackIndex = 0; TrackIndex < TrackNum; ++TrackIndex)
-				{
-					FAnimNotifyTrack& Track = AnimationObject->AnimNotifyTracks[TrackIndex];
-					Track.TrackName = *FString::FromInt(TrackIndex + 1);
-				}
-			}
-		}
+		// 		// remake track names to create a nice sequence
+		// 		const int32 TrackNum = AnimationObject->AnimNotifyTracks.Num();
+		// 		for (int32 TrackIndex = 0; TrackIndex < TrackNum; ++TrackIndex)
+		// 		{
+		// 			FAnimNotifyTrack& Track = AnimationObject->AnimNotifyTracks[TrackIndex];
+		// 			Track.TrackName = *FString::FromInt(TrackIndex + 1);
+		// 		}
+		// 	}
+		// }
 
 		// now build tracks
-		for (int32 EventIndex = 0; EventIndex < AnimationObject->Notifies.Num(); ++EventIndex)
-		{
-			FAnimNotifyEvent& Event = AnimationObject->Notifies[EventIndex];
-			AnimationObject->AnimNotifyTracks[Event.TrackIndex].Notifies.Add(&AnimationObject->Notifies[EventIndex]);
-		}
+		// for (int32 EventIndex = 0; EventIndex < AnimationObject->Notifies.Num(); ++EventIndex)
+		// {
+		// 	FAnimNotifyEvent& Event = AnimationObject->Notifies[EventIndex];
+		// 	AnimationObject->AnimNotifyTracks[Event.TrackIndex].Notifies.Add(&AnimationObject->Notifies[EventIndex]);
+		// }
 	}
 }
 
@@ -148,6 +148,7 @@ bool ARuntimeAnimRecorder::StartRecord(USkeletalMeshComponent* Component, const 
 		AnimationObject = NewSeq;
 	}
 
+	// Editor Only...
 	PreviousAnimCurves = Component->GetAnimationCurves();
 	PreviousComponentToWorld = Component->GetComponentTransform();
 
