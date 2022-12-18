@@ -8,7 +8,7 @@ public class RecordAnimEUWSampleTarget : TargetRules
 	public RecordAnimEUWSampleTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		// ExtraModuleNames.AddRange( new string[] { "RecordAnimEUWSampleEditor" } );
+		ExtraModuleNames.AddRange( new string[] { "RecordAnimEUWSampleEditor" } );
 		DefaultBuildSettings = BuildSettingsVersion.V2;
 
 		ExtraModuleNames.AddRange( new string[] { "RecordAnimEUWSample" } );
